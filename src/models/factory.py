@@ -8,7 +8,6 @@ from omegaconf import DictConfig
 from src.models.backbones import build_backbone
 from src.models.frontend import Frontend
 from src.models.heads import build_head
-from src.models.pretrained_audio import build_audio_pretrained
 
 
 class AudioModel(nn.Module):
@@ -22,12 +21,7 @@ class AudioModel(nn.Module):
         super().__init__()
         use_frontend = cfg.feature.compute_on == "gpu"
         self.frontend: nn.Module | None = Frontend(cfg) if use_frontend else None
-
-        if cfg.model.type == "timm":
-            self.backbone, feat_dim = build_backbone(cfg)
-        else:
-            self.backbone, feat_dim = build_audio_pretrained(cfg)
-
+        self.backbone, feat_dim = build_backbone(cfg)
         self.head = build_head(cfg, feat_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

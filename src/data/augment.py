@@ -4,18 +4,18 @@ from __future__ import annotations
 import numpy as np
 import torch
 import torch.nn as nn
+import torchaudio.transforms as T
 from omegaconf import DictConfig
 
 
 def apply_waveform_aug(wav: np.ndarray, cfg: DictConfig) -> np.ndarray:
     """Apply gain / additive noise based on augment config flags. Returns float32 array."""
     if cfg.augment.gain:
-        gain = np.random.uniform(0.6, 1.4)
-        wav = wav * gain
+        lo, hi = cfg.augment.gain_range
+        wav = wav * np.random.uniform(lo, hi)
     if cfg.augment.noise:
-        amp = np.random.uniform(0.0, 0.005)
+        amp = np.random.uniform(0.0, cfg.augment.noise_amp)
         wav = wav + amp * np.random.randn(*wav.shape).astype(np.float32)
-    # pitch_shift / time_shift: heavy ops, not yet implemented
     return wav.astype(np.float32)
 
 
@@ -24,12 +24,14 @@ class SpecAugment(nn.Module):
 
     def __init__(self, cfg: DictConfig) -> None:
         super().__init__()
-        self.freq_mask_param = cfg.augment.freq_mask
-        self.time_mask_param = cfg.augment.time_mask
+        self.freq_mask = T.FrequencyMasking(freq_mask_param=cfg.augment.freq_mask)
+        self.time_mask = T.TimeMasking(time_mask_param=cfg.augment.time_mask)
 
     def forward(self, spec: torch.Tensor) -> torch.Tensor:
         # spec: (B, C, H, W)
-        raise NotImplementedError("SpecAugment.forward not yet implemented")
+        spec = self.freq_mask(spec)
+        spec = self.time_mask(spec)
+        return spec
 
 
 def mixup_batch(
@@ -39,4 +41,11 @@ def mixup_batch(
     mode: str = "max",
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Batch-level mixup. mode='max' → element-wise max labels (multi-label safe)."""
-    raise NotImplementedError("mixup_batch not yet implemented")
+    lam = np.random.beta(alpha, alpha)
+    idx = torch.randperm(x.size(0), device=x.device)
+    x_mix = lam * x + (1 - lam) * x[idx]
+    if mode == "max":
+        y_mix = torch.max(y, y[idx])
+    else:
+        y_mix = lam * y + (1 - lam) * y[idx]
+    return x_mix, y_mix

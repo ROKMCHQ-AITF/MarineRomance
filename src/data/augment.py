@@ -9,13 +9,23 @@ from omegaconf import DictConfig
 
 
 def apply_waveform_aug(wav: np.ndarray, cfg: DictConfig) -> np.ndarray:
-    """Apply gain / additive noise based on augment config flags. Returns float32 array."""
+    """Apply gain / noise / pitch_shift / time_shift. Returns float32 array."""
     if cfg.augment.gain:
         lo, hi = cfg.augment.gain_range
         wav = wav * np.random.uniform(lo, hi)
     if cfg.augment.noise:
         amp = np.random.uniform(0.0, cfg.augment.noise_amp)
         wav = wav + amp * np.random.randn(*wav.shape).astype(np.float32)
+    if cfg.augment.get("pitch_shift", False):
+        import librosa
+        lo, hi = cfg.augment.get("pitch_shift_range", [-2.0, 2.0])
+        n_steps = np.random.uniform(lo, hi)
+        wav = librosa.effects.pitch_shift(wav, sr=cfg.data.sample_rate, n_steps=n_steps)
+    if cfg.augment.get("time_shift", False):
+        max_frac = cfg.augment.get("time_shift_range", 0.1)
+        max_shift = int(len(wav) * max_frac)
+        shift = np.random.randint(-max_shift, max_shift + 1)
+        wav = np.roll(wav, shift)
     return wav.astype(np.float32)
 
 

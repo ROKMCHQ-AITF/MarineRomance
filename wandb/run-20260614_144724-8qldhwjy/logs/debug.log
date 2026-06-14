@@ -1,0 +1,24 @@
+2026-06-14 14:47:24,760 INFO    MainThread:17496 [wandb_setup.py:_flush():81] Current SDK version is 0.27.2
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_setup.py:_flush():81] Configure stats pid to 17496
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_init.py:setup_run_log_directory():723] Logging user logs to /home/elicer/MarineRomance/wandb/run-20260614_144724-8qldhwjy/logs/debug.log
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_init.py:setup_run_log_directory():724] Logging internal logs to /home/elicer/MarineRomance/wandb/run-20260614_144724-8qldhwjy/logs/debug-internal.log
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_init.py:init():766] calling init triggers
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_init.py:init():771] wandb.init called with sweep_config: {}
+config: {'exp_name': 'exp001_baseline', 'seed': 42, 'debug': False, 'data': {'train_csv': 'input/train_metadata.csv', 'audio_dir': 'input/train_audio', 'folds_csv': 'input/folds.csv', 'label_col': 'primary_label', 'id_col': 'filename', 'group_col': None, 'multilabel': True, 'sample_rate': 32000, 'duration': 5.0, 'crop': 'random'}, 'feature': {'type': 'melspec', 'compute_on': 'gpu', 'n_fft': 1024, 'hop_length': 320, 'win_length': 1024, 'n_mels': 128, 'fmin': 50, 'fmax': 16000, 'power': 2.0, 'to_db': True, 'normalize': True, 'image_size': [128, 128], 'n_channels': 3, 'channel_mode': 'repeat'}, 'model': {'backbone': 'tf_efficientnet_b0_ns', 'pretrained': True, 'in_chans': 3, 'num_classes': 50, 'head': 'linear', 'drop_rate': 0.2, 'drop_path_rate': 0.2}, 'train': {'folds': [0], 'n_folds': 5, 'epochs': 10, 'batch_size': 32, 'num_workers': 4, 'amp': True, 'grad_accum': 1, 'clip_grad': None}, 'augment': {'mixup': 0.0, 'mixup_mode': 'max', 'spec_augment': False, 'freq_mask': 24, 'time_mask': 40, 'gain': False, 'gain_range': [0.6, 1.4], 'noise': False, 'noise_amp': 0.005}, 'loss': {'type': 'bce', 'focal_gamma': 2.0, 'label_smoothing': 0.0}, 'optimizer': {'type': 'adamw', 'lr': 0.001, 'weight_decay': 0.0001, 'scheduler': 'cosine', 'warmup_ratio': 0.1, 'min_lr': 1e-06}, 'metric': {'name': 'f1', 'monitor': 'val_f1', 'mode': 'max'}, 'wandb': {'project': 'Navy-Marine-ai-contest', 'entity': None, 'mode': 'online', 'tags': ['baseline', '1fold']}, '_wandb': {}}
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_init.py:init():814] starting backend
+2026-06-14 14:47:24,761 INFO    MainThread:17496 [wandb_init.py:init():829] sending inform_init request
+2026-06-14 14:47:25,222 INFO    MainThread:17496 [wandb_init.py:init():834] backend started and connected
+2026-06-14 14:47:25,225 INFO    MainThread:17496 [wandb_init.py:init():904] updated telemetry
+2026-06-14 14:47:25,286 INFO    MainThread:17496 [wandb_init.py:init():927] communicating run to backend with 90.0 second timeout
+2026-06-14 14:47:25,572 INFO    MainThread:17496 [wandb_init.py:init():972] starting run threads in backend
+2026-06-14 14:47:25,676 INFO    MainThread:17496 [wandb_run.py:_console_start():2523] atexit reg
+2026-06-14 14:47:25,676 INFO    MainThread:17496 [wandb_run.py:_redirect():2373] redirect: wrap_raw
+2026-06-14 14:47:25,676 INFO    MainThread:17496 [wandb_run.py:_redirect():2442] Wrapping output streams.
+2026-06-14 14:47:25,676 INFO    MainThread:17496 [wandb_run.py:_redirect():2465] Redirects installed.
+2026-06-14 14:47:25,678 INFO    MainThread:17496 [wandb_init.py:init():1010] run started, returning control to user process
+2026-06-14 14:47:25,679 INFO    MainThread:17496 [wandb_run.py:_finish():2285] finishing run rokmc-ai-contest/Navy-Marine-ai-contest/8qldhwjy
+2026-06-14 14:47:25,679 INFO    MainThread:17496 [wandb_run.py:_atexit_cleanup():2490] got exitcode: 0
+2026-06-14 14:47:25,680 INFO    MainThread:17496 [wandb_run.py:_restore():2472] restore
+2026-06-14 14:47:25,680 INFO    MainThread:17496 [wandb_run.py:_restore():2478] restore done
+2026-06-14 14:47:27,422 INFO    MainThread:17496 [wandb_run.py:_footer_sync_info():3891] logging synced files

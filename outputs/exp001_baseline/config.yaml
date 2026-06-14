@@ -30,7 +30,6 @@ feature:
   n_channels: 3
   channel_mode: repeat
 model:
-  type: timm
   backbone: tf_efficientnet_b0_ns
   pretrained: true
   in_chans: 3
@@ -48,7 +47,6 @@ train:
   amp: true
   grad_accum: 1
   clip_grad: null
-  ema: false
 augment:
   mixup: 0.0
   mixup_mode: max
@@ -56,14 +54,15 @@ augment:
   freq_mask: 24
   time_mask: 40
   gain: false
+  gain_range:
+  - 0.6
+  - 1.4
   noise: false
-  pitch_shift: false
-  time_shift: false
+  noise_amp: 0.005
 loss:
   type: bce
   focal_gamma: 2.0
   label_smoothing: 0.0
-  class_weights: null
 optimizer:
   type: adamw
   lr: 0.001
@@ -75,14 +74,8 @@ metric:
   name: f1
   monitor: val_f1
   mode: max
-inference:
-  tta:
-  - none
-  sliding_window: false
-  window_stride: 2.5
-  ensemble_ckpts: []
 wandb:
-  project: kaggle-audio-clf
+  project: Navy-Marine-ai-contest
   entity: null
   mode: disabled
   tags:

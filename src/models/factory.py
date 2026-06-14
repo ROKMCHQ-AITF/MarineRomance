@@ -1,7 +1,6 @@
 # Factory: assembles frontend + backbone + head into AudioModel from config.
 from __future__ import annotations
 
-import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 
@@ -13,23 +12,42 @@ from src.models.heads import build_head
 class AudioModel(nn.Module):
     """End-to-end model: (B,1,T) waveform → (B, num_classes) logits.
 
+    model.type routing:
+      timm       → timm backbone via backbones.py (uses Frontend for spectrogram)
+      panns      → CNN14 backbone via pretrained_audio.py (uses Frontend for spectrogram)
+      wav2vec2   → wav2vec2 via pretrained_audio.py (skips Frontend, raw waveform in)
+
     When cfg.feature.compute_on=='cpu', x is expected to be a pre-computed
     (B, C, H, W) feature tensor and the frontend is skipped.
     """
 
     def __init__(self, cfg: DictConfig) -> None:
         super().__init__()
-        use_frontend = cfg.feature.compute_on == "gpu"
+        model_type = cfg.model.get("type", "timm")
+
+        if model_type == "timm":
+            self.backbone, feat_dim = build_backbone(cfg)
+        elif model_type in ("panns", "wav2vec2"):
+            from src.models.pretrained_audio import build_audio_pretrained
+            self.backbone, feat_dim = build_audio_pretrained(cfg)
+        else:
+            raise ValueError(
+                f"Unknown model.type='{model_type}'. Choose timm / panns / wav2vec2."
+            )
+
+        # wav2vec2 consumes raw waveform directly — no spectrogram frontend needed.
+        skip_frontend = model_type == "wav2vec2"
+        use_frontend = (not skip_frontend) and (cfg.feature.compute_on == "gpu")
         self.frontend: nn.Module | None = Frontend(cfg) if use_frontend else None
-        self.backbone, feat_dim = build_backbone(cfg)
+
         self.head = build_head(cfg, feat_dim)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, 1, T) waveform  or  (B, C, H, W) cached feature
+    def forward(self, x):
+        # x: (B, 1, T) waveform  or  (B, C, H, W) pre-computed feature
         if self.frontend is not None:
-            x = self.frontend(x)       # (B, C, H, W)
-        features = self.backbone(x)    # (B, feat_dim)
-        return self.head(features)     # (B, num_classes)
+            x = self.frontend(x)     # (B, C, H, W)
+        features = self.backbone(x)  # (B, feat_dim)
+        return self.head(features)   # (B, num_classes)
 
 
 def build_model(cfg: DictConfig) -> AudioModel:

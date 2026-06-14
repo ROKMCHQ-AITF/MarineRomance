@@ -15,5 +15,7 @@ feature:
   channel_mode: repeat
 
 wandb:
+  project: "Navy-Marine-ai-contest"
+ 
   tags: [baseline, 1fold]
-  mode: disabled         # flip to online when ready to log
+  mode: online         # flip to online when ready to log

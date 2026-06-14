@@ -34,3 +34,10 @@ def fix_length(wav: np.ndarray, length: int, mode: str = "random") -> np.ndarray
             start = (len(wav) - length) // 2
         wav = wav[start : start + length]
     return wav[:length]
+
+
+def trim_silence(wav: np.ndarray, top_db: float = 30.0) -> np.ndarray:
+    """Remove leading/trailing silence using amplitude threshold."""
+    trimmed, _ = librosa.effects.trim(wav, top_db=top_db)
+    # Return original if trim removes everything
+    return trimmed if len(trimmed) > 0 else wav

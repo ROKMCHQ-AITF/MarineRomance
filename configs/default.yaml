@@ -1,0 +1,94 @@
+exp_name: default
+seed: 42
+debug: false
+
+data:
+  train_csv: input/train_metadata.csv
+  audio_dir: input/train_audio
+  folds_csv: input/folds.csv
+  label_col: primary_label
+  id_col: filename
+  group_col: null
+  multilabel: true
+  sample_rate: 32000
+  duration: 5.0
+  crop: random
+
+feature:
+  type: melspec          # melspec | mfcc | cqt | raw
+  compute_on: gpu        # gpu | cpu
+  n_fft: 1024
+  hop_length: 320
+  win_length: 1024
+  n_mels: 128
+  fmin: 50
+  fmax: 16000
+  power: 2.0
+  to_db: true
+  normalize: true
+  image_size: [256, 256]
+  n_channels: 3
+  channel_mode: repeat   # repeat | delta | multi_res
+
+model:
+  type: timm             # timm | panns | wav2vec2
+  backbone: tf_efficientnet_b0_ns
+  pretrained: true
+  in_chans: 3
+  num_classes: 182
+  head: linear           # linear | sed | attention
+  drop_rate: 0.2
+  drop_path_rate: 0.2
+
+train:
+  folds: [0]
+  n_folds: 5
+  epochs: 10
+  batch_size: 32
+  num_workers: 4
+  amp: true
+  grad_accum: 1
+  clip_grad: null
+  ema: false
+
+augment:
+  mixup: 0.0
+  mixup_mode: max
+  spec_augment: false
+  freq_mask: 24
+  time_mask: 40
+  gain: false
+  noise: false
+  pitch_shift: false
+  time_shift: false
+
+loss:
+  type: bce              # bce | focal | ce | lsep
+  focal_gamma: 2.0
+  label_smoothing: 0.0
+  class_weights: null
+
+optimizer:
+  type: adamw
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: cosine      # cosine | onecycle | plateau | none
+  warmup_ratio: 0.1
+  min_lr: 1.0e-6
+
+metric:
+  name: f1               # f1 | macro_f1 | auc | cmap
+  monitor: val_f1
+  mode: max
+
+inference:
+  tta: [none]
+  sliding_window: false
+  window_stride: 2.5
+  ensemble_ckpts: []
+
+wandb:
+  project: kaggle-audio-clf
+  entity: null
+  mode: online           # online | offline | disabled
+  tags: []

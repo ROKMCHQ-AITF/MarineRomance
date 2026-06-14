@@ -428,21 +428,21 @@ def main():
 
 ## 9. 현재 구현 상태
 
-**CLAUDE.md §7 구현 순서 기준 전 단계 완료.**
+**코어 파이프라인(1~10) 완료. 고도화 기능(11~12) 미구현.**
 
-| 단계 | 파일 | 상태 |
-|------|------|------|
-| 1 | utils/config, seed, logger | ✅ |
-| 2 | configs/default.yaml, exp001_baseline.yaml | ✅ |
-| 3 | data/dataset, dataloader | ✅ |
-| 4 | models/frontend, backbones, heads, factory | ✅ |
-| 5 | training/losses, optimizers, trainer | ✅ |
-| 6 | utils/metrics, checkpoint | ✅ |
-| 7 | main.py (1-fold e2e, dummy data 통과) | ✅ |
-| 8 | scripts/prepare_folds, verify_audio | ✅ |
-| 9 | data/augment, preprocessing | ✅ |
-| 10 | inference.py + TTA | ✅ |
-| 11 | data/feature_extractor, scripts/cache_features | ✅ |
-| 12 | models/pretrained_audio, postprocess/threshold | ✅ |
+| 단계 | 파일 | 상태 | 비고 |
+|------|------|------|------|
+| 1 | utils/config, seed, logger | ✅ | |
+| 2 | configs/default.yaml, exp001_baseline.yaml | ✅ | |
+| 3 | data/dataset, dataloader | ✅ | |
+| 4 | models/frontend, backbones, heads, factory | ⚠️ | frontend: melspec+repeat만 동작 / heads: LinearHead만 동작 |
+| 5 | training/losses, optimizers, trainer | ⚠️ | losses: bce/focal/ce만 동작 (lsep NotImplementedError) |
+| 6 | utils/metrics, checkpoint | ✅ | |
+| 7 | main.py (1-fold e2e, dummy data 통과) | ✅ | |
+| 8 | scripts/prepare_folds, verify_audio | ✅ | |
+| 9 | data/augment, preprocessing | ✅ | |
+| 10 | inference.py + 앙상블 | ✅ | TTA: none/gain 동작, flip/sliding_window 미구현 |
+| 11 | data/feature_extractor, scripts/cache_features | ❌ | 파일 자체 없음 — CPU 캐싱 경로 미구현 |
+| 12 | models/pretrained_audio, postprocess/threshold | ❌ | 파일 자체 없음 — PANNs/wav2vec2, 임계값 최적화 미구현 |
 
 새 기능 추가 시 이 표에도 반영할 것.

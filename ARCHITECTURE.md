@@ -85,20 +85,21 @@ inference.py --config <yaml> --ckpt <dir_or_.pth>
 
 | 하고 싶은 것 | 여는 파일 | 비고 |
 |---|---|---|
-| feature를 mel→cqt로 변경 | `configs/*.yaml`의 `feature.type` | 코드 수정 X. config만 |
-| 새 feature 종류 추가 | `models/frontend.py` + `data/feature_extractor.py` | 두 곳에 같은 규격으로 분기 추가 |
+| feature를 mel→cqt로 변경 | `configs/*.yaml`의 `feature.type` | ⚠️ cqt는 frontend에 NotImplementedError — 구현 필요 |
+| 새 feature 종류 추가 | `models/frontend.py` + `data/feature_extractor.py` | feature_extractor.py 미구현 — 두 곳 동시 추가 |
 | backbone 교체 | `configs/*.yaml`의 `model.backbone` | timm 이름만 바꾸면 됨 |
-| 음향 사전학습 모델(PANNs 등) | `models/pretrained_audio.py` + `model.type` | factory가 분기 |
-| 3채널 구성 방식 | `feature.channel_mode` (repeat/delta/multi_res) | frontend가 처리 |
+| 음향 사전학습 모델(PANNs 등) | `models/pretrained_audio.py` + `model.type` | ❌ 파일 미구현 — 새로 작성 필요 |
+| 3채널 구성 방식 | `feature.channel_mode` (repeat/delta/multi_res) | ⚠️ repeat만 동작. delta/multi_res는 NotImplementedError |
 | 증강 켜고 끄기 | `configs/*.yaml`의 `augment.*` | waveform=dataset, spec=trainer |
 | mixup | `augment.mixup` + `trainer.train_one_epoch` | GPU 스텝에서 적용 |
-| loss 변경 | `loss.type` → `training/losses.py` | bce/focal/ce/lsep |
+| loss 변경 | `loss.type` → `training/losses.py` | ⚠️ bce/focal/ce 동작. lsep는 NotImplementedError |
 | 스케줄러 변경 | `optimizer.scheduler` → `training/optimizers.py` | |
-| 평가지표(대회 공식) | `metric.name` → `utils/metrics.py` | cmAP 등 여기에 구현 |
-| fold 분할 방식 | `scripts/prepare_folds.py` | Stratified/Group |
-| SED(이벤트 탐지)로 전환 | `model.head=sed` → `heads.SEDHead` | clip+frame 출력 |
-| TTA·앙상블 | `inference.*` → `inference.py` | |
-| 임계값 최적화 | `postprocess/threshold.py` | oof로 탐색 |
+| 평가지표(대회 공식) | `metric.name` → `utils/metrics.py` | f1/macro_f1/auc/cmap 지원 |
+| fold 분할 방식 | `scripts/prepare_folds.py` | Stratified/Group/MultilabelStratified |
+| SED(이벤트 탐지)로 전환 | `model.head=sed` → `heads.SEDHead` | ⚠️ SEDHead는 NotImplementedError |
+| TTA·앙상블 | `inference.py` | none/gain TTA 동작. flip/sliding_window 미구현 |
+| 임계값 최적화 | `postprocess/threshold.py` | ❌ 파일 미구현 — 새로 작성 필요 |
+| CPU feature 캐싱 | `scripts/cache_features.py` | ❌ 파일 미구현 — feature_extractor.py와 함께 작성 |
 | 학습 로그 항목 추가 | `utils/logger.py` 호출부(trainer) | wandb |
 
 ---
@@ -110,7 +111,7 @@ main.py
  ├─ utils.config, utils.seed, utils.logger
  ├─ data.dataloader ─► data.dataset ─► data.preprocessing, data.augment
  ├─ models.factory ─► models.frontend, models.backbones,
- │                    models.pretrained_audio, models.heads
+ │                    models.pretrained_audio [❌ 미구현], models.heads
  └─ training.trainer ─► training.losses, training.optimizers,
                         data.augment(mixup/specaug),
                         utils.metrics, utils.checkpoint, utils.logger
@@ -119,11 +120,11 @@ inference.py
  ├─ utils.config, utils.seed
  ├─ data.dataset, data.dataloader
  ├─ models.factory
- └─ (postprocess.threshold — OOF threshold 최적화 시 별도 호출)
+ └─ (postprocess.threshold [❌ 미구현] — OOF threshold 최적화 시 별도 호출)
 
 scripts/prepare_folds.py   ─► (독립) pandas + sklearn
 scripts/verify_audio.py    ─► data.preprocessing
-scripts/cache_features.py  ─► data.feature_extractor
+scripts/cache_features.py  [❌ 미구현] ─► data.feature_extractor [❌ 미구현]
 ```
 
 규칙: **의존성은 한 방향으로만 흐른다.** `utils`는 아무것도 import 안 하고(가장 아래),

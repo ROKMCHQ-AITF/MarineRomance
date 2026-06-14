@@ -151,8 +151,8 @@ python scripts/verify_audio.py --config configs/exp001_baseline.yaml
 # 1) fold 분할 (1회)
 python scripts/prepare_folds.py --config configs/exp001_baseline.yaml
 
-# 2) (선택) feature 캐싱
-python scripts/cache_features.py --config configs/exp002_advanced.yaml
+# 2) (선택) feature 캐싱 — 미구현. cache_features.py + feature_extractor.py 작성 후 사용 가능
+# python scripts/cache_features.py --config configs/exp002_advanced.yaml
 
 # 3) 학습 (단일 fold, 빠른 검증)
 python main.py --config configs/exp001_baseline.yaml
@@ -170,22 +170,30 @@ python main.py --config configs/exp001_baseline.yaml train.epochs=2 train.batch_
 
 ---
 
-## 7. 구현 순서 (완료)
+## 7. 구현 순서 (현재 상태)
 
-모든 단계 구현 완료. 새 기능 추가 시 이 순서 원칙을 따른다.
+새 기능 추가 시 이 순서 원칙을 따른다.
 
 1. ✅ `utils/config.py`, `utils/seed.py`, `utils/logger.py` — 기반
 2. ✅ `configs/default.yaml` + `exp001_baseline.yaml` — config 스키마 확정
 3. ✅ `data/dataset.py`, `data/dataloader.py` — 더미 텐서라도 batch가 나오게
 4. ✅ `models/frontend.py`, `models/backbones.py`, `models/heads.py`, `models/factory.py`
+   - ⚠️ frontend: `melspec + repeat` 채널만 동작. `mfcc/cqt/raw`, `delta/multi_res`는 `NotImplementedError`
+   - ⚠️ heads: `LinearHead`만 동작. `AttentionHead`, `SEDHead`는 `NotImplementedError`
 5. ✅ `training/losses.py`, `training/optimizers.py`, `training/trainer.py`
+   - ⚠️ losses: `bce/focal/ce`만 동작. `lsep`는 `NotImplementedError`
 6. ✅ `utils/metrics.py`, `utils/checkpoint.py`
 7. ✅ `main.py` — 1-fold 학습 e2e 통과 (1차 마일스톤 달성)
 8. ✅ `scripts/prepare_folds.py`, `verify_audio.py`
 9. ✅ `data/augment.py` (mixup/specaug), `data/preprocessing.py`
 10. ✅ `inference.py` + fold 앙상블
+11. ❌ `data/feature_extractor.py`, `scripts/cache_features.py` — 미구현 (CPU 캐싱 경로)
+12. ❌ `models/pretrained_audio.py` — 미구현 (PANNs/wav2vec2 등)
+    ❌ `postprocess/threshold.py` — 미구현 (임계값 최적화)
 
-**실제 대회 데이터 투입 준비 완료.** `input/`에 데이터 넣고 config 수정 후 바로 학습 가능.
+**코어 파이프라인(1~10) 완료. 실제 대회 데이터 투입 준비 완료.**
+`input/`에 데이터 넣고 config 수정 후 바로 학습 가능.
+11~12는 성능 향상 고도화 단계에서 추가 구현한다.
 
 ---
 

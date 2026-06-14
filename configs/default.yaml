@@ -15,7 +15,7 @@ data:
   crop: random
 
 feature:
-  type: melspec          # melspec | mfcc | cqt | raw
+  type: melspec          # melspec | mfcc | cqt
   compute_on: gpu        # gpu | cpu
   n_fft: 1024
   hop_length: 320
@@ -28,15 +28,14 @@ feature:
   normalize: true
   image_size: [256, 256]
   n_channels: 3
-  channel_mode: repeat   # repeat | delta | multi_res
+  channel_mode: repeat   # repeat | delta
 
 model:
-  type: timm             # timm | panns | wav2vec2
   backbone: tf_efficientnet_b0_ns
   pretrained: true
   in_chans: 3
-  num_classes: 182
-  head: linear           # linear | sed | attention
+  num_classes: 182       # update after running prepare_folds.py
+  head: linear           # linear | sed
   drop_rate: 0.2
   drop_path_rate: 0.2
 
@@ -49,7 +48,6 @@ train:
   amp: true
   grad_accum: 1
   clip_grad: null
-  ema: false
 
 augment:
   mixup: 0.0
@@ -58,15 +56,14 @@ augment:
   freq_mask: 24
   time_mask: 40
   gain: false
+  gain_range: [0.6, 1.4]
   noise: false
-  pitch_shift: false
-  time_shift: false
+  noise_amp: 0.005
 
 loss:
   type: bce              # bce | focal | ce | lsep
   focal_gamma: 2.0
   label_smoothing: 0.0
-  class_weights: null
 
 optimizer:
   type: adamw
@@ -80,12 +77,6 @@ metric:
   name: f1               # f1 | macro_f1 | auc | cmap
   monitor: val_f1
   mode: max
-
-inference:
-  tta: [none]
-  sliding_window: false
-  window_stride: 2.5
-  ensemble_ckpts: []
 
 wandb:
   project: kaggle-audio-clf

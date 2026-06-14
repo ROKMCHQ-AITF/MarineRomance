@@ -26,7 +26,8 @@ def _auc_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
     try:
         return float(roc_auc_score(y_true, y_pred, average="macro"))
-    except ValueError:
+    except ValueError as e:
+        print(f"[warn] AUC skipped: {e}")
         return 0.0
 
 
@@ -36,7 +37,8 @@ def _cmap_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
     try:
         return float(average_precision_score(y_true, y_pred, average="macro"))
-    except ValueError:
+    except ValueError as e:
+        print(f"[warn] cMAP skipped: {e}")
         return 0.0
 
 

@@ -183,9 +183,7 @@ python main.py --config configs/exp001_baseline.yaml train.epochs=2 train.batch_
 7. ✅ `main.py` — 1-fold 학습 e2e 통과 (1차 마일스톤 달성)
 8. ✅ `scripts/prepare_folds.py`, `verify_audio.py`
 9. ✅ `data/augment.py` (mixup/specaug), `data/preprocessing.py`
-10. ✅ `inference.py` + TTA + 앙상블
-11. ✅ `data/feature_extractor.py`, `scripts/cache_features.py`
-12. ✅ `models/pretrained_audio.py`, `postprocess/threshold.py`
+10. ✅ `inference.py` + fold 앙상블
 
 **실제 대회 데이터 투입 준비 완료.** `input/`에 데이터 넣고 config 수정 후 바로 학습 가능.
 

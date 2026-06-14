@@ -1,0 +1,13 @@
+# 모델 가중치 (용량 큼 — git으로 관리 안 함)
+*.pt
+*.pth
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
+
+# 분석 산출물
+analysis/
+
+# 데이터셋 (대용량 — Kaggle ESC-50 별도 다운로드)
+archive/audio/

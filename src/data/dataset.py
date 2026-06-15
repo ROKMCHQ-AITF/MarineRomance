@@ -126,7 +126,8 @@ class AudioDataset(Dataset):
         stem = Path(str(row[self.cfg.data.id_col])).stem
         channels = []
         for feat_type in self.feat_types:
-            if feat_type in self.packed:
+            # packed에 있으면 packed에서, 없으면(val/test 등) 개별 .npy로 fallback
+            if feat_type in self.packed and stem in self.packed_index[feat_type]:
                 idx = self.packed_index[feat_type][stem]
                 feat = np.asarray(self.packed[feat_type][idx], dtype=np.float32)  # (F, T)
             else:

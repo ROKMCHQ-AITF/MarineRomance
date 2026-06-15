@@ -6,6 +6,8 @@ data:
   train_csv: /home/elicer/MarineRomance/input/train.csv
   audio_dir: /home/elicer/MarineRomance/input/audio
   folds_csv: /home/elicer/MarineRomance/input/folds.csv
+  val_csv: /home/elicer/MarineRomance/DB/task1_test/val.csv   # (evaluate.py) 공식 라벨 검증셋 = LB 프록시
+  test_csv: /home/elicer/MarineRomance/DB/task1_test/test.csv # (inference.py) 라벨 없는 제출 대상
   label_col: ship_type
   id_col: filename
   group_col: ship_id

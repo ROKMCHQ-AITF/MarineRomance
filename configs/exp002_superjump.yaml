@@ -1,0 +1,133 @@
+exp_name: default
+seed: 42
+debug: false
+
+data:
+  train_csv: /home/elicer/MarineRomance/input/train.csv
+  audio_dir: /home/elicer/MarineRomance/input/audio
+  folds_csv: /home/elicer/MarineRomance/input/folds.csv
+  val_csv: /home/elicer/MarineRomance/DB/task1_test/val.csv   # (evaluate.py) 공식 라벨 검증셋 = LB 프록시
+  test_csv: /home/elicer/MarineRomance/DB/task1_test/test.csv # (inference.py) 라벨 없는 제출 대상
+  label_col: ship_type
+  id_col: filename
+  group_col: ship_id
+  multilabel: false
+  sample_rate: 32000
+  duration: 5.0
+  crop: random
+
+feature:
+  type: log_mel          # melspec | log_mel | mfcc | cqt | lofar | demon | raw
+  compute_on: cpu        # gpu: Frontend(GPU) 사용 | cpu: 캐시된 .npy 로드
+  cache_dir: /home/elicer/MarineRomance/input/cache # (compute_on=cpu) .npy 캐시 루트. 하위에 {type}/ 폴더 구조
+  cache_in_ram: true     # packed array를 RAM에 통째로 적재 (mmap 랜덤 디스크 I/O 제거). RAM 부족하면 false
+                         # 주의: feature 1개당 packed 크기만큼 RAM 사용. 여러 feature 동시엔 합산 용량 확인
+                         # [팁] 매 실행 RAM적재(수백초)가 싫으면: packed를 /dev/shm(tmpfs=RAM)에 1회 복사 후
+                         #   cache_dir=/dev/shm/cache, cache_in_ram=false 로 mmap → 실행마다 즉시 시작.
+                         # [팁] pack_features.py --dtype float16 으로 패킹하면 용량·로딩·RAM 절반.
+  n_fft: 1024
+  hop_length: 320
+  win_length: 1024
+  n_mels: 128
+  fmin: 20
+  fmax: 16000
+  power: 2.0
+  to_db: true
+  normalize: true
+  log_eps: 1.0e-6        # floor for log_mel: log(mel.clamp(min=log_eps))
+  image_size: [256, 256]
+  n_channels: 3
+  channel_mode: repeat   # repeat | delta | log_linear | harmonic_percussive | multi_res | multi_feat
+  n_mfcc: 40             # (mfcc) number of MFCC coefficients
+  n_bins: 84             # (cqt) number of CQT frequency bins
+  bins_per_octave: 12    # (cqt) bins per octave
+  lofar_n_fft: 4096      # (lofar) large FFT for fine freq resolution
+  lofar_n_bins: 256      # (lofar) low-freq bins to keep (0 ~ lofar_n_bins * sr/lofar_n_fft Hz)
+  demon_fmin: 1000.0     # (demon) bandpass low cutoff Hz
+  demon_fmax: 10000.0    # (demon) bandpass high cutoff Hz
+  demon_env_cutoff: 50.0 # (demon) envelope lowpass cutoff Hz
+  demon_env_sr: 400      # (demon) envelope sample rate after decimation
+  demon_n_fft: 256       # (demon) FFT size for envelope spectrogram
+  demon_hop_length: 8    # (demon) hop length for envelope spectrogram
+  hpss_kernel_harm: 31   # (harmonic_percussive) median filter kernel along time axis
+  hpss_kernel_perc: 31   # (harmonic_percussive) median filter kernel along freq axis
+  channel_features:      # (multi_feat) feature type per channel; melspec | log_mel | lofar | demon
+    - melspec
+    - lofar
+    - demon
+
+model:
+  type: timm             # timm | ast | beats
+  backbone: tf_efficientnet_b4_ns
+  pretrained: true
+  hf_model: null                # HuggingFace model ID (ast: MIT/ast-finetuned-audioset-10-10-0.4593)
+  pretrained_path: input/pretrained/BEATs_iter3_plus_AS2M.pt  # beats checkpoint
+  in_chans: 3
+  num_classes: 4       # update after running prepare_folds.py
+  head: linear           # linear | sed
+  drop_rate: 0.2
+  drop_path_rate: 0.2
+
+train:
+  folds: [0]
+  n_folds: 5
+  epochs: 10
+  batch_size: 48
+  # cache_in_ram=true면 RAM 접근이라 데이터로딩 수ms → num_workers=0이 안전+충분히 빠름.
+  # (CPU 2코어 + RAM 하드리밋 24GB 환경: 워커 fork시 COW로 OOM 위험. 여유 확인 후 2까지 시도 가능)
+  num_workers: 0
+  prefetch_factor: 4     # (num_workers>0 일 때만) 워커당 미리 적재할 배치 수
+  amp: true
+  grad_accum: 1
+  clip_grad: null
+  early_stopping: false  # true면 patience 동안 val 개선 없으면 중단
+  patience: 5            # early stopping 기준 epoch 수
+  cudnn_benchmark: true  # cuDNN 최적 알고리즘 자동 탐색 (입력크기 고정 시 speedup, 재현성 소폭 희생)
+  channels_last: true    # Ampere 텐서코어 conv 가속 (~24% speedup, 정확도·메모리 동일)
+  compile: false         # torch.compile() 적용. MIG 슬라이스(SM 적음)에선 효과↓+컴파일hang → 끔
+
+augment:
+  mixup: 0.0
+  mixup_mode: max
+  spec_augment: false
+  freq_mask: 24
+  time_mask: 40
+  gain: false
+  gain_range: [0.6, 1.4]
+  noise: false
+  noise_amp: 0.005
+  pitch_shift: false
+  pitch_shift_range: [-2.0, 2.0]  # semitones
+  time_shift: false
+  time_shift_range: 0.1            # fraction of clip length
+
+loss:
+  type: combo             # bce | focal | ce | lsep | combo
+  focal_gamma: 2.0       # (focal) focusing parameter γ — 높을수록 어려운 샘플에 집중
+  label_smoothing: 0.05   # 0.0=hard label; >0이면 bce·focal·ce·combo 모두 적용 (예: 0.1)
+  class_weight: balanced     # none | balanced — 클래스 불균형 보정 (다수클래스 붕괴 방지). ce는 weight=, bce는 pos_weight=
+  # type=combo 일 때 아래 components 리스트를 사용한다. weight 합은 자동 정규화.
+  components:
+    - {type: focal, weight: 0.7, focal_gamma: 2.0, label_smoothing: 0.05}
+    - {type: bce,   weight: 0.3}
+  # components 안에서 label_smoothing을 개별 지정하면 위 global 값보다 우선한다.
+  # 예: - {type: focal, weight: 0.7, focal_gamma: 2.0, label_smoothing: 0.05}
+
+optimizer:
+  type: adamw
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: cosine      # cosine | onecycle | plateau | none
+  warmup_ratio: 0.1
+  min_lr: 1.0e-6
+
+metric:
+  name: macro_f1              # f1 | macro_f1 | auc | cmap
+  monitor: macro_val_f1
+  mode: max
+
+wandb:
+  project: Navy-Marine-ai-contest
+  entity: null
+  mode: online           # online | offline | disabled
+  tags: [baseline, sample_model]

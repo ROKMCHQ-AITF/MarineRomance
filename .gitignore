@@ -1,0 +1,67 @@
+# ===== 데이터 (용량 큼 / 각자 로컬에 둠) =====
+# 원본 오디오·학습데이터·feature 캐시
+DB/
+input/audio/
+input/train/
+input/test/
+input/cache/
+# packed/캐시 numpy 배열 (메타데이터 csv·json은 아래에서 추적 유지)
+*.npy
+*.npz
+
+# ===== 사전학습 가중치 =====
+input/pretrained/*.pt
+input/pretrained/*.pth
+input/pretrained/*.ckpt
+input/pretrained/.cache/
+
+# ===== 모델 산출물 =====
+*.pt
+*.pth
+*.ckpt
+*.onnx
+# outputs는 폴더 구조만 남기고 내용 무시
+outputs/*
+!outputs/.gitkeep
+
+# ===== 실험 로깅 =====
+wandb/
+runs/
+*.log
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ===== 가상환경 =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== 노트북 체크포인트 =====
+.ipynb_checkpoints/
+
+# ===== 테스트 / 타입체크 캐시 =====
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ===== IDE / 에디터 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db

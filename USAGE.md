@@ -108,6 +108,19 @@ python inference.py --config configs/exp002_advanced.yaml \
 bash scripts/make_submission.sh configs/exp002_advanced.yaml
 ```
 
+### 공식 검증셋 평가 (LB 프록시)
+```bash
+# 라벨 있는 val.csv로 점수 측정 (학습엔 절대 안 씀, data.val_csv 사용)
+python evaluate.py --config configs/default.yaml --ckpt outputs/default
+
+# 단일 체크포인트 / 다른 val 지정
+python evaluate.py --config configs/default.yaml --ckpt outputs/default/best_fold0.pth
+python evaluate.py --config configs/default.yaml --ckpt outputs/default --val_csv <경로>
+```
+- 출력: 공식 지표(macro_F1 등) + accuracy + 클래스별 precision/recall/F1 리포트.
+- **전제**: val 오디오의 feature를 `cache_dir/{type}/`에 `.npy`로 미리 캐싱해야 함 (train과 동일 방식).
+- 용도: 학습 CV 점수와 이 val 점수의 상관을 보고 CV 신뢰도 판단 → CV로 빠르게 반복.
+
 ### 보조 스크립트
 ```bash
 python scripts/verify_audio.py  --config <cfg>   # 데이터 무결성

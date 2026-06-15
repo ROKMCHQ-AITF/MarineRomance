@@ -12,12 +12,6 @@ def load_audio(path: Path, target_sr: int) -> np.ndarray:
     return wav.astype(np.float32)
 
 
-def trim_silence(wav: np.ndarray, top_db: float = 30.0) -> np.ndarray:
-    """Remove leading/trailing silence using librosa."""
-    trimmed, _ = librosa.effects.trim(wav, top_db=top_db)
-    return trimmed
-
-
 def normalize_wave(wav: np.ndarray) -> np.ndarray:
     """Peak-normalize waveform to [-1, 1]."""
     peak = np.abs(wav).max()
@@ -40,3 +34,10 @@ def fix_length(wav: np.ndarray, length: int, mode: str = "random") -> np.ndarray
             start = (len(wav) - length) // 2
         wav = wav[start : start + length]
     return wav[:length]
+
+
+def trim_silence(wav: np.ndarray, top_db: float = 30.0) -> np.ndarray:
+    """Remove leading/trailing silence using amplitude threshold."""
+    trimmed, _ = librosa.effects.trim(wav, top_db=top_db)
+    # Return original if trim removes everything
+    return trimmed if len(trimmed) > 0 else wav

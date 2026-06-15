@@ -116,6 +116,12 @@ def build_audio_pretrained(cfg: DictConfig) -> tuple[nn.Module, int]:
             encoder = BEATs(beats_cfg)
 
         feat_dim = getattr(beats_cfg, "encoder_embed_dim", 768)
+        if cfg.data.sample_rate != 16000:
+            print(
+                f"[WARN] BEATs was trained at 16000 Hz but cfg.data.sample_rate={cfg.data.sample_rate}. "
+                "Set data.sample_rate: 16000 or resample in preprocessing.",
+                flush=True,
+            )
         return _BEATsWrapper(encoder, feat_dim), feat_dim
 
     else:

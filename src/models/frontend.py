@@ -30,6 +30,12 @@ class Frontend(nn.Module):
         self.image_size = list(feat.image_size) if feat.image_size else None
         self.do_normalize = feat.normalize
         sr = cfg.data.sample_rate
+        self._logged_shape = False
+        print(
+            f"[Frontend] type={feat.type}  channel_mode={feat.channel_mode}"
+            f"  image_size={list(feat.image_size)}  sr={sr}",
+            flush=True,
+        )
 
         if self.channel_mode == "multi_feat":
             self._init_multi_feat(feat, sr)
@@ -173,6 +179,9 @@ class Frontend(nn.Module):
     def forward(self, wav: torch.Tensor) -> torch.Tensor:
         # wav: (B, 1, T)
         x = wav.squeeze(1)  # (B, T)
+        if not self._logged_shape:
+            print(f"[Frontend.forward] input={tuple(wav.shape)}  device={wav.device}", flush=True)
+            self._logged_shape = True
 
         if self.feature_type == "raw":
             return self._forward_raw(x)
@@ -186,6 +195,9 @@ class Frontend(nn.Module):
         img = self._make_channels(spec)                                       # (B, C, H, W)
         if self.image_size is not None:
             img = F.interpolate(img, size=self.image_size, mode="bilinear", align_corners=False)
+        if not hasattr(self, "_logged_out") or not self._logged_out:
+            print(f"[Frontend.forward] output={tuple(img.shape)}", flush=True)
+            self._logged_out = True
         return img
 
     def _forward_multi_res(self, x: torch.Tensor) -> torch.Tensor:

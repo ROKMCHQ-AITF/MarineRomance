@@ -41,6 +41,11 @@ class AudioModel(nn.Module):
         self.frontend: nn.Module | None = Frontend(cfg) if use_frontend else None
 
         self.head = build_head(cfg, feat_dim)
+        print(
+            f"[AudioModel] type={model_type}  frontend={'on' if self.frontend else 'off'}"
+            f"  feat_dim={feat_dim}  num_classes={cfg.model.num_classes}",
+            flush=True,
+        )
 
     def forward(self, x):
         # x: (B, 1, T) waveform  or  (B, C, H, W) pre-computed feature

@@ -38,7 +38,7 @@ def _make_dummy_df(cfg: DictConfig) -> pd.DataFrame:
 def main() -> None:
     args = parse_args()
     cfg = load_config(args.config, args.overrides)
-    seed_everything(cfg.seed)
+    seed_everything(cfg.seed, benchmark=cfg.train.get("cudnn_benchmark", True))
 
     out_dir = Path("outputs") / cfg.exp_name
     save_config(cfg, out_dir)
@@ -53,17 +53,29 @@ def main() -> None:
 
     scores: list[float] = []
     for fold in cfg.train.folds:
+        print(f"\n[fold {fold}] building dataloaders...", flush=True)
         train_df = df[df.fold != fold]
         valid_df = df[df.fold == fold]
         loaders = {
             "train": build_dataloader(train_df, cfg, "train"),
             "valid": build_dataloader(valid_df, cfg, "valid"),
         }
+        print(f"[fold {fold}] train={len(train_df)} samples ({len(loaders['train'])} batches)  val={len(valid_df)} samples ({len(loaders['valid'])} batches)", flush=True)
+
+        print(f"[fold {fold}] building model...", flush=True)
         model = build_model(cfg)
+        n_params = sum(p.numel() for p in model.parameters()) / 1e6
+        print(f"[fold {fold}] model={cfg.model.backbone}  params={n_params:.1f}M", flush=True)
+
+        if cfg.train.get("compile", False):
+            import torch
+            print(f"[fold {fold}] torch.compile() 적용 중 (mode=reduce-overhead)... 첫 배치 warm-up ~1분", flush=True)
+            model = torch.compile(model, mode="default")
+
         trainer = Trainer(model, loaders, cfg, logger, fold)
         score = trainer.fit()
         scores.append(score)
-        print(f"Fold {fold} best {cfg.metric.monitor}: {score:.4f}")
+        print(f"[fold {fold}] best {cfg.metric.monitor}: {score:.4f}", flush=True)
 
     cv_mean = float(np.mean(scores))
     print(f"CV mean: {cv_mean:.4f}")

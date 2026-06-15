@@ -33,7 +33,7 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer | None = None,
 ) -> dict:
     """Load checkpoint into model (and optionally optimizer). Returns state dict."""
-    state = torch.load(path, map_location="cpu")
+    state = torch.load(path, map_location="cpu", weights_only=True)
     model.load_state_dict(state["model"])
     if optimizer is not None and "optimizer" in state:
         optimizer.load_state_dict(state["optimizer"])

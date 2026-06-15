@@ -3,8 +3,8 @@ seed: 42
 debug: false
 
 data:
-  train_csv: input/train_metadata.csv
-  audio_dir: input/train_audio
+  train_csv: input/train.csv
+  audio_dir: input/audio
   folds_csv: input/folds.csv
   label_col: primary_label
   id_col: filename
@@ -15,7 +15,7 @@ data:
   crop: random
 
 feature:
-  type: melspec          # melspec | mfcc | cqt | raw
+  type: melspec          # melspec | log_mel | mfcc | cqt | lofar | demon | raw
   compute_on: gpu        # gpu | cpu
   n_fft: 1024
   hop_length: 320
@@ -26,19 +26,34 @@ feature:
   power: 2.0
   to_db: true
   normalize: true
+  log_eps: 1.0e-6        # floor for log_mel: log(mel.clamp(min=log_eps))
   image_size: [256, 256]
   n_channels: 3
-  channel_mode: repeat   # repeat | delta | multi_res
-  n_mfcc: 40             # number of MFCC coefficients (only for type=mfcc)
-  n_bins: 84             # number of CQT frequency bins (only for type=cqt)
-  bins_per_octave: 12    # CQT bins per octave (only for type=cqt)
+  channel_mode: repeat   # repeat | delta | log_linear | harmonic_percussive | multi_res | multi_feat
+  n_mfcc: 40             # (mfcc) number of MFCC coefficients
+  n_bins: 84             # (cqt) number of CQT frequency bins
+  bins_per_octave: 12    # (cqt) bins per octave
+  lofar_n_fft: 4096      # (lofar) large FFT for fine freq resolution
+  lofar_n_bins: 256      # (lofar) low-freq bins to keep (0 ~ lofar_n_bins * sr/lofar_n_fft Hz)
+  demon_fmin: 1000.0     # (demon) bandpass low cutoff Hz
+  demon_fmax: 10000.0    # (demon) bandpass high cutoff Hz
+  demon_env_cutoff: 50.0 # (demon) envelope lowpass cutoff Hz
+  demon_env_sr: 400      # (demon) envelope sample rate after decimation
+  demon_n_fft: 256       # (demon) FFT size for envelope spectrogram
+  demon_hop_length: 8    # (demon) hop length for envelope spectrogram
+  hpss_kernel_harm: 31   # (harmonic_percussive) median filter kernel along time axis
+  hpss_kernel_perc: 31   # (harmonic_percussive) median filter kernel along freq axis
+  channel_features:      # (multi_feat) feature type per channel; melspec | log_mel | lofar | demon
+    - melspec
+    - lofar
+    - demon
 
 model:
-  type: timm             # timm | panns | wav2vec2
+  type: timm             # timm | ast | beats
   backbone: tf_efficientnet_b0_ns
   pretrained: true
-  pretrained_path: null  # local .pth path for panns weights (null = random init)
-  hf_model: facebook/wav2vec2-base  # HuggingFace model ID for wav2vec2
+  hf_model: null                # HuggingFace model ID (ast: MIT/ast-finetuned-audioset-10-10-0.4593)
+  pretrained_path: input/pretrained/BEATs_iter3_plus_AS2M.pt  # beats checkpoint
   in_chans: 3
   num_classes: 182       # update after running prepare_folds.py
   head: linear           # linear | sed
@@ -71,9 +86,15 @@ augment:
   time_shift_range: 0.1            # fraction of clip length
 
 loss:
-  type: bce              # bce | focal | ce | lsep
-  focal_gamma: 2.0
-  label_smoothing: 0.0
+  type: bce              # bce | focal | ce | lsep | combo
+  focal_gamma: 2.0       # (focal) focusing parameter γ — 높을수록 어려운 샘플에 집중
+  label_smoothing: 0.0   # 0.0=hard label; >0이면 bce·focal·ce·combo 모두 적용 (예: 0.1)
+  # type=combo 일 때 아래 components 리스트를 사용한다. weight 합은 자동 정규화.
+  # components:
+  #   - {type: focal, weight: 0.7, focal_gamma: 2.0}
+  #   - {type: bce,   weight: 0.3}
+  # components 안에서 label_smoothing을 개별 지정하면 위 global 값보다 우선한다.
+  # 예: - {type: focal, weight: 0.7, focal_gamma: 2.0, label_smoothing: 0.05}
 
 optimizer:
   type: adamw
@@ -84,7 +105,7 @@ optimizer:
   min_lr: 1.0e-6
 
 metric:
-  name: f1               # f1 | macro_f1 | auc | cmap
+  name: f1              # f1 | macro_f1 | auc | cmap
   monitor: val_f1
   mode: max
 

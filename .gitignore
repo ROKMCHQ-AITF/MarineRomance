@@ -1,0 +1,3 @@
+DB/
+input/audio/
+input/pretrained/*.pt

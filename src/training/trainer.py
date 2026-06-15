@@ -98,8 +98,12 @@ class Trainer:
             all_labels.append(y.cpu().float().numpy())
 
         logits = np.concatenate(all_logits, axis=0)   # (N, C) raw logits
-        labels = np.concatenate(all_labels, axis=0)  # (N, C)
-        preds = 1.0 / (1.0 + np.exp(-logits))        # sigmoid → probabilities in [0, 1]
+        labels = np.concatenate(all_labels, axis=0)  # (N, C) or (N,) for single-label
+        if self.cfg.data.multilabel:
+            preds = 1.0 / (1.0 + np.exp(-logits))   # sigmoid
+        else:
+            e = np.exp(logits - logits.max(axis=-1, keepdims=True))
+            preds = e / e.sum(axis=-1, keepdims=True)  # softmax
         score = self.metric_fn(labels, preds)
         monitor = self.cfg.metric.monitor
         return {

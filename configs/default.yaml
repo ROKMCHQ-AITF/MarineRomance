@@ -5,11 +5,11 @@ debug: false
 data:
   train_csv: input/train.csv
   audio_dir: input/audio
-  folds_csv: input/folds.csv
+  folds_csv: /home/elicer/MarineRomance/input/fold.csv
   label_col: primary_label
   id_col: filename
-  group_col: null
-  multilabel: true
+  group_col: ship_id
+  multilabel: false
   sample_rate: 32000
   duration: 5.0
   crop: random

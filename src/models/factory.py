@@ -16,6 +16,7 @@ class AudioModel(nn.Module):
       timm   → timm backbone via backbones.py (uses Frontend for spectrogram)
       ast    → ASTModel via pretrained_audio.py (uses Frontend for spectrogram)
       beats  → Microsoft BEATs via pretrained_audio.py (skips Frontend, raw waveform in)
+      htsat  → HTS-AT (CLAP audio tower) via pretrained_audio.py (skips Frontend, raw waveform in)
 
     When cfg.feature.compute_on=='cpu', x is expected to be a pre-computed
     (B, C, H, W) feature tensor and the frontend is skipped.
@@ -27,16 +28,16 @@ class AudioModel(nn.Module):
 
         if model_type == "timm":
             self.backbone, feat_dim = build_backbone(cfg)
-        elif model_type in ("ast", "beats"):
+        elif model_type in ("ast", "beats", "htsat"):
             from src.models.pretrained_audio import build_audio_pretrained
             self.backbone, feat_dim = build_audio_pretrained(cfg)
         else:
             raise ValueError(
-                f"Unknown model.type='{model_type}'. Choose timm / ast / beats."
+                f"Unknown model.type='{model_type}'. Choose timm / ast / beats / htsat."
             )
 
-        # beats consumes raw waveform directly — no spectrogram frontend needed.
-        skip_frontend = model_type == "beats"
+        # beats/htsat consume raw waveform directly — no spectrogram frontend needed.
+        skip_frontend = model_type in ("beats", "htsat")
         use_frontend = (not skip_frontend) and (cfg.feature.compute_on == "gpu")
         self.frontend: nn.Module | None = Frontend(cfg) if use_frontend else None
 

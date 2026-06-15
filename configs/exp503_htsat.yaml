@@ -1,0 +1,119 @@
+exp_name: exp503_htsat
+seed: 42
+debug: false
+
+data:
+  train_csv: "인공지능 경진대회 DB/train/train.csv"
+  audio_dir: "인공지능 경진대회 DB/train/audio"
+  folds_csv: input/folds.csv
+  label_col: ship_type
+  id_col: filename
+  group_col: ship_id
+  multilabel: false
+  sample_rate: 48000      # HTS-AT(CLAP)는 48kHz 입력 → load_audio가 여기로 리샘플
+  duration: 5.0
+  crop: random
+  preload_to_ram: false   # 2 vCPU·48kHz면 선적재 RAM(~32GiB) 초과 → 워커 스트리밍
+  use_ais: true           # train_head에서 sog/cog/heading(5feat)을 임베딩에 concat (0.31→0.41)
+
+feature:
+  # NOTE: model.type=htsat → Frontend is skipped; CLAP feature extractor가 mel을 만든다.
+  type: melspec          # melspec | log_mel | mfcc | cqt | lofar | demon | raw
+  compute_on: gpu        # gpu | cpu
+  n_fft: 1024
+  hop_length: 320
+  win_length: 1024
+  n_mels: 128
+  fmin: 20
+  fmax: 16000
+  power: 2.0
+  to_db: true
+  normalize: true
+  log_eps: 1.0e-6        # floor for log_mel: log(mel.clamp(min=log_eps))
+  image_size: [256, 256]
+  n_channels: 3
+  channel_mode: repeat   # repeat | delta | log_linear | harmonic_percussive | multi_res | multi_feat
+  n_mfcc: 40             # (mfcc) number of MFCC coefficients
+  n_bins: 84             # (cqt) number of CQT frequency bins
+  bins_per_octave: 12    # (cqt) bins per octave
+  lofar_n_fft: 4096      # (lofar) large FFT for fine freq resolution
+  lofar_n_bins: 256      # (lofar) low-freq bins to keep (0 ~ lofar_n_bins * sr/lofar_n_fft Hz)
+  demon_fmin: 1000.0     # (demon) bandpass low cutoff Hz
+  demon_fmax: 10000.0    # (demon) bandpass high cutoff Hz
+  demon_env_cutoff: 50.0 # (demon) envelope lowpass cutoff Hz
+  demon_env_sr: 400      # (demon) envelope sample rate after decimation
+  demon_n_fft: 256       # (demon) FFT size for envelope spectrogram
+  demon_hop_length: 8    # (demon) hop length for envelope spectrogram
+  hpss_kernel_harm: 31   # (harmonic_percussive) median filter kernel along time axis
+  hpss_kernel_perc: 31   # (harmonic_percussive) median filter kernel along freq axis
+  channel_features:      # (multi_feat) feature type per channel; melspec | log_mel | lofar | demon
+    - melspec
+    - lofar
+    - demon
+
+model:
+  type: htsat
+  pretrained: true
+  hf_model: laion/clap-htsat-unfused   # HTS-AT audio tower (LAION-CLAP)
+  freeze_encoder: true                 # frozen 인코더 + linear head (10GB VRAM에 안전)
+  num_classes: 4         # A_SmallWorking / B_MotorBoat / C_Passenger / D_LargeShip
+  head: mlp              # linear | mlp — mlp: 768 audio + 5 AIS 비선형 결합
+  mlp_hidden: 512        # (mlp) hidden dim
+  drop_rate: 0.2
+  drop_path_rate: 0.2
+
+train:
+  folds: [0]
+  n_folds: 1
+
+  epochs: 100             # head만 학습이라 epoch당 초 단위 → 넉넉히 (sweep상 30~150 평탄)
+  batch_size: 32          # frozen 인코더라 VRAM 여유. feature 추출이 CPU라 step당 CPU 비용↑
+  num_workers: 2
+  amp: true               # HTS-AT(Swin)는 fp16 autocast 안정적
+  grad_accum: 1
+  clip_grad: null
+
+augment:
+  mixup: 0.0
+  mixup_mode: max
+  spec_augment: true
+  freq_mask: 24
+  time_mask: 40
+  gain: false
+  gain_range: [0.6, 1.4]
+  noise: false
+  noise_amp: 0.005
+  pitch_shift: false
+  pitch_shift_range: [-2.0, 2.0]  # semitones
+  time_shift: false
+  time_shift_range: 0.1            # fraction of clip length
+
+loss:
+  type: combo              # bce | focal | ce | lsep | combo
+  focal_gamma: 2.0       # (focal) focusing parameter γ — 높을수록 어려운 샘플에 집중
+  label_smoothing: 0.0   # 0.0=hard label; >0이면 bce·focal·ce·combo 모두 적용 (예: 0.1)
+  class_weight: [1.0, 2.0, 2.5, 1.2]     # none | balanced — 클래스 불균형 보정 (다수클래스 붕괴 방지). ce는 weight=, bce는 pos_weight=
+  # combo = Focal + (label smoothing) CrossEntropy. weight 합은 자동 정규화.
+  # focal: 불균형/어려운 샘플 집중. ce(label_smoothing): 과확신 억제·일반화. 둘 다 class_weight=balanced(α/weight) 적용.
+  components:
+    - {type: focal, weight: 0.5, focal_gamma: 2.0, label_smoothing: 0.0}
+    - {type: ce,    weight: 0.5, label_smoothing: 0.1}
+  # components 안에서 label_smoothing을 개별 지정하면 위 global 값보다 우선한다.
+optimizer:
+  type: adamw
+  lr: 3.0e-3             # sweep 결과 linear head는 lr 3e-3에서 최적 (1e-3=underfit)
+  weight_decay: 1.0e-4
+  scheduler: cosine      # cosine | onecycle | plateau | none
+  warmup_ratio: 0.1
+  min_lr: 1.0e-6
+
+metric:
+  name: macro_f1
+  monitor: val_macro_f1
+  mode: max
+
+wandb:
+  project: Navy-Marine-ai-contest
+  entity: null
+  mode: online           # online | offline | disabled
+  tags: [baseline, task1, htsat]

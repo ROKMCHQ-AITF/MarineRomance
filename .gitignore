@@ -1,6 +1,13 @@
 DB/
+인공지능 경진대회 DB/
 input/audio/
 input/pretrained/*.pt
+
+# Large data / model artifacts (safety net)
+*.pt
+*.pth
+*.npy
+*.npz
 
 # Python cache
 __pycache__/

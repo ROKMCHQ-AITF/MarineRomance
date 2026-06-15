@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from src.training.losses import build_loss
 from src.training.optimizers import build_optimizer, build_scheduler
@@ -56,7 +57,8 @@ class Trainer:
         total_loss = 0.0
         self.optimizer.zero_grad()
 
-        for step, (x, y) in enumerate(self.loaders["train"]):
+        pbar = tqdm(self.loaders["train"], desc=f"[fold={self.fold} epoch={epoch:02d}] train", leave=False)
+        for step, (x, y) in enumerate(pbar):
             x = x.to(self.device)
             y = y.to(self.device)
 
@@ -77,6 +79,7 @@ class Trainer:
                     self.scheduler.step()
 
             total_loss += loss.item() * self.cfg.train.grad_accum
+            pbar.set_postfix(loss=f"{loss.item() * self.cfg.train.grad_accum:.4f}")
 
         return {"train_loss": total_loss / len(self.loaders["train"])}
 
@@ -87,7 +90,7 @@ class Trainer:
         all_logits, all_labels = [], []
         total_loss = 0.0
 
-        for x, y in self.loaders["valid"]:
+        for x, y in tqdm(self.loaders["valid"], desc=f"[fold={self.fold}] valid", leave=False):
             x = x.to(self.device)
             y = y.to(self.device)
             with torch.amp.autocast(device_type=self.device.type, enabled=self.use_amp):

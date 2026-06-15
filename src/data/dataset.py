@@ -10,6 +10,8 @@ import torch
 from omegaconf import DictConfig
 from torch.utils.data import Dataset
 
+from tqdm import tqdm
+
 from src.data.augment import apply_waveform_aug
 from src.data.preprocessing import fix_length, load_audio, normalize_wave
 
@@ -36,6 +38,17 @@ class AudioDataset(Dataset):
             self.label_map = {}
         self.num_classes = len(self.label_map) if self.label_map else cfg.model.num_classes
 
+        # RAM 선적재: 디스크 I/O 병목 제거
+        self._cache: dict[str, np.ndarray] | None = None
+        if cfg.data.get("preload_to_ram", False) and not cfg.get("debug", False):
+            print(f"[Dataset/{mode}] RAM 선적재 중 ({len(self.df)}개)...")
+            self._cache = {}
+            id_col = cfg.data.id_col
+            for _, row in tqdm(self.df.iterrows(), total=len(self.df), leave=False):
+                fname = row[id_col]
+                wav = load_audio(self.audio_dir / fname, cfg.data.sample_rate)
+                self._cache[fname] = normalize_wave(wav)
+
     def __len__(self) -> int:
         return len(self.df)
 
@@ -49,9 +62,12 @@ class AudioDataset(Dataset):
             return wav_t, label
 
         row = self.df.iloc[i]
-        path = self.audio_dir / row[self.cfg.data.id_col]
-        wav = load_audio(path, self.cfg.data.sample_rate)
-        wav = normalize_wave(wav)
+        fname = row[self.cfg.data.id_col]
+        if self._cache is not None:
+            wav = self._cache[fname].copy()
+        else:
+            wav = load_audio(self.audio_dir / fname, self.cfg.data.sample_rate)
+            wav = normalize_wave(wav)
         crop_mode = self.cfg.data.crop if self.mode == "train" else "center"
         wav = fix_length(wav, self.target_len, mode=crop_mode)
         if self.mode == "train":

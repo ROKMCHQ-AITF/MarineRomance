@@ -2,14 +2,19 @@
 from __future__ import annotations
 
 import numpy as np
-import librosa
+import torchaudio
+import torchaudio.functional as AF
 from pathlib import Path
 
 
 def load_audio(path: Path, target_sr: int) -> np.ndarray:
     """Load audio file, resample to target_sr, convert to mono. Returns (T,) float32."""
-    wav, _ = librosa.load(str(path), sr=target_sr, mono=True)
-    return wav.astype(np.float32)
+    wav, sr = torchaudio.load(str(path))  # (C, T)
+    if wav.shape[0] > 1:
+        wav = wav.mean(dim=0, keepdim=True)  # mono
+    if sr != target_sr:
+        wav = AF.resample(wav, sr, target_sr)
+    return wav.squeeze(0).numpy().astype(np.float32)
 
 
 def normalize_wave(wav: np.ndarray) -> np.ndarray:

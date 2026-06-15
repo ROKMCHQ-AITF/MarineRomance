@@ -1,3 +1,13 @@
 DB/
 input/audio/
 input/pretrained/*.pt
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Training outputs
+outputs/
+
+# Wandb logs
+wandb/

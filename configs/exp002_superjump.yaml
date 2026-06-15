@@ -58,7 +58,7 @@ feature:
 
 model:
   type: timm             # timm | ast | beats
-  backbone: tf_efficientnet_b0_ns
+  backbone: tf_efficientnet_b4_ns
   pretrained: true
   hf_model: null                # HuggingFace model ID (ast: MIT/ast-finetuned-audioset-10-10-0.4593)
   pretrained_path: input/pretrained/BEATs_iter3_plus_AS2M.pt  # beats checkpoint
@@ -102,14 +102,14 @@ augment:
   time_shift_range: 0.1            # fraction of clip length
 
 loss:
-  type: ce              # bce | focal | ce | lsep | combo
+  type: combo             # bce | focal | ce | lsep | combo
   focal_gamma: 2.0       # (focal) focusing parameter γ — 높을수록 어려운 샘플에 집중
-  label_smoothing: 0.0   # 0.0=hard label; >0이면 bce·focal·ce·combo 모두 적용 (예: 0.1)
-  class_weight: none     # none | balanced — 클래스 불균형 보정 (다수클래스 붕괴 방지). ce는 weight=, bce는 pos_weight=
+  label_smoothing: 0.05   # 0.0=hard label; >0이면 bce·focal·ce·combo 모두 적용 (예: 0.1)
+  class_weight: balanced     # none | balanced — 클래스 불균형 보정 (다수클래스 붕괴 방지). ce는 weight=, bce는 pos_weight=
   # type=combo 일 때 아래 components 리스트를 사용한다. weight 합은 자동 정규화.
-  # components:
-  #   - {type: focal, weight: 0.7, focal_gamma: 2.0}
-  #   - {type: bce,   weight: 0.3}
+  components:
+    - {type: focal, weight: 0.7, focal_gamma: 2.0, label_smoothing: 0.05}
+    - {type: bce,   weight: 0.3}
   # components 안에서 label_smoothing을 개별 지정하면 위 global 값보다 우선한다.
   # 예: - {type: focal, weight: 0.7, focal_gamma: 2.0, label_smoothing: 0.05}
 

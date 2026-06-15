@@ -42,6 +42,41 @@ class FocalLoss(nn.Module):
         return (((1 - pt) ** self.gamma) * bce).mean()
 
 
+class MulticlassFocalLoss(nn.Module):
+    """Softmax(CE) focal loss for single-label classification.
+
+    loss = α_c · (1 - p_t)^γ · CE,  p_t = softmax 확률 중 정답 클래스 값.
+    weight(α): 클래스별 가중치 (불균형 보정). gamma(γ): 쉬운 샘플 down-weight.
+    """
+
+    def __init__(
+        self, gamma: float = 2.0, weight: torch.Tensor | None = None, smoothing: float = 0.0
+    ) -> None:
+        super().__init__()
+        self.gamma = gamma
+        self.smoothing = smoothing
+        self.register_buffer("weight", weight)  # None이면 등록만, .to(device) 따라감
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        # logits: (B, C), targets: (B,) long
+        logp = F.log_softmax(logits, dim=-1)                       # (B, C)
+        logp_t = logp.gather(1, targets.unsqueeze(1)).squeeze(1)   # (B,) 정답 log prob
+        pt = logp_t.exp()                                          # (B,)
+        focal = (1.0 - pt).clamp(min=0.0) ** self.gamma            # (B,) 변조항
+
+        if self.smoothing > 0.0:
+            # label smoothing: (1-ε)·정답 NLL + ε·전체 평균 NLL
+            ce = (1.0 - self.smoothing) * (-logp_t) + self.smoothing * (-logp.mean(dim=1))
+        else:
+            ce = -logp_t
+
+        loss = focal * ce                                          # (B,)
+        if self.weight is not None:
+            at = self.weight.gather(0, targets)                    # (B,) 샘플별 α
+            return (at * loss).sum() / at.sum().clamp(min=1e-8)    # 가중 평균
+        return loss.mean()
+
+
 class ComboLoss(nn.Module):
     """Weighted sum of multiple losses defined under loss.components."""
 
@@ -54,40 +89,54 @@ class ComboLoss(nn.Module):
         return sum(w * l(logits, targets) for w, l in zip(self.weights, self.losses))
 
 
-def _build_single(loss_cfg: DictConfig, global_smoothing: float) -> nn.Module:
-    """Build one loss component from a component-level config dict."""
+def _build_single(
+    loss_cfg: DictConfig,
+    global_smoothing: float,
+    class_weights: torch.Tensor | None = None,
+    multilabel: bool = True,
+) -> nn.Module:
+    """Build one loss component from a component-level config dict.
+
+    class_weights: (C,) 텐서. ce는 weight=, bce는 pos_weight=, softmax focal은 α로 적용.
+    multilabel=False면 focal은 softmax(CE) 기반 MulticlassFocalLoss를 사용.
+    """
     loss_type = loss_cfg.type
     smoothing = float(loss_cfg.get("label_smoothing", global_smoothing))
     if loss_type == "bce":
         if smoothing > 0.0:
             return BCEWithLabelSmoothing(smoothing=smoothing)
-        return nn.BCEWithLogitsLoss()
+        return nn.BCEWithLogitsLoss(pos_weight=class_weights)
     elif loss_type == "focal":
-        return FocalLoss(gamma=float(loss_cfg.get("focal_gamma", 2.0)), smoothing=smoothing)
+        gamma = float(loss_cfg.get("focal_gamma", 2.0))
+        if multilabel:
+            return FocalLoss(gamma=gamma, smoothing=smoothing)  # sigmoid focal
+        return MulticlassFocalLoss(gamma=gamma, weight=class_weights, smoothing=smoothing)
     elif loss_type == "ce":
-        return nn.CrossEntropyLoss(label_smoothing=smoothing)
+        return nn.CrossEntropyLoss(weight=class_weights, label_smoothing=smoothing)
     elif loss_type == "lsep":
         raise NotImplementedError("LSEP loss not yet implemented")
     else:
         raise ValueError(f"Unknown loss type: '{loss_type}'")
 
 
-def build_loss(cfg: DictConfig) -> nn.Module:
+def build_loss(cfg: DictConfig, class_weights: torch.Tensor | None = None) -> nn.Module:
     """Return loss module from config.
 
     loss.type=combo 일 때 loss.components 리스트에서 각 loss를 조립해 가중합한다.
+    class_weights: 클래스 불균형 보정용 (C,) 텐서. trainer가 train 분포에서 계산해 전달.
     """
     loss_type = cfg.loss.type
     global_smoothing = float(cfg.loss.get("label_smoothing", 0.0))
+    multilabel = bool(cfg.data.multilabel)
 
     if loss_type == "combo":
         components = cfg.loss.components  # list of {type, weight, ...}
         losses, weights = [], []
         for comp in components:
-            losses.append(_build_single(comp, global_smoothing))
+            losses.append(_build_single(comp, global_smoothing, class_weights, multilabel))
             weights.append(float(comp.get("weight", 1.0)))
         total = sum(weights)
         weights = [w / total for w in weights]  # 합이 1이 되도록 정규화
         return ComboLoss(losses, weights)
 
-    return _build_single(cfg.loss, global_smoothing)
+    return _build_single(cfg.loss, global_smoothing, class_weights, multilabel)

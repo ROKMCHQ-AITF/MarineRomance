@@ -47,7 +47,8 @@ class Trainer:
         if self.channels_last:
             self.model = self.model.to(memory_format=torch.channels_last)
 
-        self.loss_fn = build_loss(cfg)
+        class_weights = self._compute_class_weights()
+        self.loss_fn = build_loss(cfg, class_weights).to(self.device)
         self.optimizer = build_optimizer(model, cfg)
         self.scheduler = build_scheduler(self.optimizer, cfg, len(loaders["train"]))
         self.use_amp = cfg.train.amp and self.device.type == "cuda"
@@ -63,6 +64,38 @@ class Trainer:
         self.gpu_resize = cfg.feature.compute_on == "cpu"
         self.image_size: list[int] = list(cfg.feature.image_size)
         self.n_channels = int(cfg.feature.n_channels)
+
+    def _compute_class_weights(self) -> torch.Tensor | None:
+        """loss.class_weight=balanced면 train 분포에서 inverse-frequency 가중치 계산.
+
+        single-label(ce): weight=(C,), balanced = n_samples / (n_classes * count_c).
+        다수 클래스 붕괴(majority collapse) 방지용. none이면 None 반환.
+        """
+        mode = str(self.cfg.loss.get("class_weight", "none"))
+        if mode == "none":
+            return None
+        ds = self.loaders["train"].dataset
+        label_map = getattr(ds, "label_map", {})
+        num_classes = int(self.cfg.model.num_classes)
+        if not label_map:
+            print(f"[Trainer fold={self.fold}] class_weight skip: label_map 없음", flush=True)
+            return None
+
+        counts = np.zeros(num_classes, dtype=np.float64)
+        col = self.cfg.data.label_col
+        for raw in ds.df[col].astype(str):
+            if self.cfg.data.multilabel:
+                for name in raw.split():
+                    if name in label_map:
+                        counts[label_map[name]] += 1
+            elif raw in label_map:
+                counts[label_map[raw]] += 1
+        counts = np.clip(counts, 1.0, None)  # 0 division 방지
+        weights = counts.sum() / (num_classes * counts)  # balanced
+        w = torch.tensor(weights, dtype=torch.float32)
+        print(f"[Trainer fold={self.fold}] class_weight={mode} counts={counts.astype(int).tolist()} "
+              f"weights={[round(float(x), 3) for x in w]}", flush=True)
+        return w
 
     def _prep_gpu(self, x: torch.Tensor) -> torch.Tensor:
         """compute_on=cpu일 때 GPU에서 (B,C,F,T)→(B,n_channels,H,W) resize + 채널 확장."""

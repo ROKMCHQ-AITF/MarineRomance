@@ -6,6 +6,8 @@ data:
   train_csv: /home/elicer/MarineRomance/input/train.csv
   audio_dir: /home/elicer/MarineRomance/input/audio
   folds_csv: /home/elicer/MarineRomance/input/folds.csv
+  val_csv: /home/elicer/MarineRomance/DB/task1_test/val.csv   # (evaluate.py) 공식 라벨 검증셋 = LB 프록시
+  test_csv: /home/elicer/MarineRomance/DB/task1_test/test.csv # (inference.py) 라벨 없는 제출 대상
   label_col: ship_type
   id_col: filename
   group_col: ship_id
@@ -15,9 +17,14 @@ data:
   crop: random
 
 feature:
-  type: melspec          # melspec | log_mel | mfcc | cqt | lofar | demon | raw
+  type: log_mel          # melspec | log_mel | mfcc | cqt | lofar | demon | raw
   compute_on: cpu        # gpu: Frontend(GPU) 사용 | cpu: 캐시된 .npy 로드
   cache_dir: /home/elicer/MarineRomance/input/cache # (compute_on=cpu) .npy 캐시 루트. 하위에 {type}/ 폴더 구조
+  cache_in_ram: true     # packed array를 RAM에 통째로 적재 (mmap 랜덤 디스크 I/O 제거). RAM 부족하면 false
+                         # 주의: feature 1개당 packed 크기만큼 RAM 사용. 여러 feature 동시엔 합산 용량 확인
+                         # [팁] 매 실행 RAM적재(수백초)가 싫으면: packed를 /dev/shm(tmpfs=RAM)에 1회 복사 후
+                         #   cache_dir=/dev/shm/cache, cache_in_ram=false 로 mmap → 실행마다 즉시 시작.
+                         # [팁] pack_features.py --dtype float16 으로 패킹하면 용량·로딩·RAM 절반.
   n_fft: 1024
   hop_length: 320
   win_length: 1024
@@ -51,7 +58,7 @@ feature:
 
 model:
   type: timm             # timm | ast | beats
-  backbone: tf_efficientnet_b4_ns
+  backbone: tf_efficientnet_b0_ns
   pretrained: true
   hf_model: null                # HuggingFace model ID (ast: MIT/ast-finetuned-audioset-10-10-0.4593)
   pretrained_path: input/pretrained/BEATs_iter3_plus_AS2M.pt  # beats checkpoint
@@ -66,14 +73,18 @@ train:
   n_folds: 5
   epochs: 10
   batch_size: 48
-  num_workers: 4
+  # cache_in_ram=true면 RAM 접근이라 데이터로딩 수ms → num_workers=0이 안전+충분히 빠름.
+  # (CPU 2코어 + RAM 하드리밋 24GB 환경: 워커 fork시 COW로 OOM 위험. 여유 확인 후 2까지 시도 가능)
+  num_workers: 0
+  prefetch_factor: 4     # (num_workers>0 일 때만) 워커당 미리 적재할 배치 수
   amp: true
   grad_accum: 1
   clip_grad: null
-  early_stopping: true  # true면 patience 동안 val 개선 없으면 중단
+  early_stopping: false  # true면 patience 동안 val 개선 없으면 중단
   patience: 5            # early stopping 기준 epoch 수
-  cudnn_benchmark: true  # cuDNN 최적 알고리즘 자동 탐색 (5~15% speedup, 재현성 소폭 희생)
-  compile: false         # torch.compile() 적용 (15~30% speedup, 첫 배치 warm-up ~1분)
+  cudnn_benchmark: true  # cuDNN 최적 알고리즘 자동 탐색 (입력크기 고정 시 speedup, 재현성 소폭 희생)
+  channels_last: true    # Ampere 텐서코어 conv 가속 (~24% speedup, 정확도·메모리 동일)
+  compile: false         # torch.compile() 적용. MIG 슬라이스(SM 적음)에선 효과↓+컴파일hang → 끔
 
 augment:
   mixup: 0.0
@@ -118,4 +129,4 @@ wandb:
   project: Navy-Marine-ai-contest
   entity: null
   mode: online           # online | offline | disabled
-  tags: [baseline, sample_model]
+  tags: [baseline]
